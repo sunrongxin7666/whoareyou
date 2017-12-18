@@ -19,6 +19,7 @@
             <version>${uauth.security.version}</version>
         </dependency>
         <dependency>
+            <!--Spring 测试框架-->
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
         </dependency>
