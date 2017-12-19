@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
 import srx.awesome.code.security.dto.User;
 import srx.awesome.code.security.dto.UserQueryCondition;
+import srx.awesome.code.security.exception.UserNotExistException;
 
 import javax.validation.Valid;
 import java.util.ArrayList;
@@ -82,6 +83,10 @@ public class UseController {
     @GetMapping(value = "/{id:\\d+}")// \\d+增则表达式数字
     //@PathVariable 将URL中的变量绑定到Java代码中
     public User getInfo(@PathVariable(name = "id") String id){
+//        if(id.equals("1")){
+//            throw new UserNotExistException(id);
+//        }
+        System.out.println("get info");
         User user = new User();
         user.setUsername("tom");
         user.setId(id);
