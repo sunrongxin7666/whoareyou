@@ -1,6 +1,10 @@
 package srx.awesome.code.security.dto;
 
+import io.swagger.annotations.ApiModelProperty;
+
 public class UserQueryCondition {
+
+    @ApiModelProperty("用户名")
     private String username;
 
     private int age;

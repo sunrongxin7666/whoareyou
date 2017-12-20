@@ -1,6 +1,8 @@
 package srx.awesome.code.security.web.controller;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.apache.commons.lang.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 import org.springframework.data.domain.Pageable;
@@ -63,6 +65,7 @@ public class UseController {
 
     @GetMapping//==requestMapping method=get
     @JsonView(User.UserSimpleView.class)
+    @ApiOperation("查询用户")
     //Pageable Spring Data中的设置
     public List<User> query(UserQueryCondition condition,
                             @PageableDefault(page = 1, size = 15, sort = "username", direction = Sort.Direction.DESC) Pageable pageable){
@@ -82,7 +85,7 @@ public class UseController {
     @JsonView(User.UserDetailView.class)
     @GetMapping(value = "/{id:\\d+}")// \\d+增则表达式数字
     //@PathVariable 将URL中的变量绑定到Java代码中
-    public User getInfo(@PathVariable(name = "id") String id){
+    public User getInfo(@ApiParam("用户ID") @PathVariable(name = "id") String id){
 //        if(id.equals("1")){
 //            throw new UserNotExistException(id);
 //        }

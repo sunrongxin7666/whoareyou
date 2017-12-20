@@ -3,7 +3,6 @@ package srx.awesome.code.security.web.controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import srx.awesome.code.security.dto.FileInfo;
-import sun.misc.IOUtils;
 
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
@@ -11,7 +10,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Date;
 
 import static org.apache.commons.io.IOUtils.*;
@@ -29,6 +27,7 @@ public class FileController {
 
         File localFile = new File(path, new Date().getTime() + ".txt");
 
+        //MultipartFile类的特性
         file.transferTo(localFile);
 
         return  new FileInfo(localFile.getAbsolutePath());
@@ -43,6 +42,7 @@ public class FileController {
             response.setContentType("application/x-download");
             response.addHeader("Content-Dispostion","attachment;filename-test.txt");
 
+            //common-io IOUtils
             copy(inputStream,outputStream);
             outputStream.flush();
         } catch (Exception e){
