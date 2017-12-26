@@ -5,7 +5,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 
 @Configuration
-public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{
+public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{//安全配置类
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.formLogin()//表单认证
