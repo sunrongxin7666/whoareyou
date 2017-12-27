@@ -3,7 +3,6 @@ package srx.awesome.code.security.wiremock;
 import org.apache.commons.io.FileUtils;
 import org.springframework.core.io.ClassPathResource;
 
-import java.io.File;
 import java.io.IOException;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
