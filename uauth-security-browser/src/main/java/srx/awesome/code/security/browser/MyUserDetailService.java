@@ -26,12 +26,12 @@ public class MyUserDetailService implements UserDetailsService{
         // 密码+salt的数据摘要
         String pwd = passwordEncoder.encode("123456" );
         logger.info("login pwd:" + pwd);
-        User user = new User(s, pwd,
-                        true,
-                        true,
-                        true,
-                        true,
-                        AuthorityUtils.commaSeparatedStringToAuthorityList("admin"));
+        User user = new User(s, pwd, //username & pwd
+                        true, //enable
+                        true, //account not expired
+                        true, //credentials not expired
+                        true, // account not locked
+                        AuthorityUtils.commaSeparatedStringToAuthorityList("admin"));// 授权
         return user;
     }
 }
