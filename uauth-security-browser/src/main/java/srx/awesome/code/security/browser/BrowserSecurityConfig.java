@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import srx.awesome.code.security.core.SecurityProperties;
 
@@ -20,6 +21,9 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{//安全
     @Autowired
     private AuthenticationSuccessHandler uauthSuccessHandler;
 
+    @Autowired
+    private AuthenticationFailureHandler uauthFailureHandler;
+
     @Bean
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
@@ -31,6 +35,7 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{//安全
                 .loginPage("/authentication/require") //登录页面
                 .loginProcessingUrl("/authentication/form")//处理登录请求的url
                 .successHandler(uauthSuccessHandler)
+                .failureHandler(uauthFailureHandler)
                 .and()
                 .authorizeRequests()//授权设置
                 .antMatchers("/authentication/require",
