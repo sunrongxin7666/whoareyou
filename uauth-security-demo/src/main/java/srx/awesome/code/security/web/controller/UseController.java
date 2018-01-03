@@ -8,9 +8,14 @@ import org.apache.commons.lang.builder.ToStringStyle;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
+import springfox.documentation.spi.service.contexts.SecurityContext;
 import srx.awesome.code.security.dto.User;
 import srx.awesome.code.security.dto.UserQueryCondition;
 import srx.awesome.code.security.exception.UserNotExistException;
@@ -22,6 +27,25 @@ import java.util.List;
 @RestController
 @RequestMapping("/user")
 public class UseController {
+
+    /**
+     * 获得当前登录用户的信息；利用SecurityContextHolder；
+     * @return
+     */
+    @GetMapping("/me")
+    public Object getCurrentUser(){
+        return SecurityContextHolder.getContext().getAuthentication();
+    }
+
+    @GetMapping("/me2")
+    public Object getCurrentUser(Authentication authentication){
+        return authentication;//Spring MVC会自动调用SecurityContextHolder.getContext().getAuthentication()
+    }
+
+    @GetMapping("/me3")
+    public Object getCurrentUser(@AuthenticationPrincipal UserDetails user){
+        return user; //Spring MVC
+    }
 
     @PostMapping
     @JsonView(User.UserDetailView.class)
