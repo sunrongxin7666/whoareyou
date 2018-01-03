@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import srx.awesome.code.security.browser.support.SimpleResponse;
-import srx.awesome.code.security.core.SecurityProperties;
+import srx.awesome.code.security.core.properties.SecurityProperties;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;

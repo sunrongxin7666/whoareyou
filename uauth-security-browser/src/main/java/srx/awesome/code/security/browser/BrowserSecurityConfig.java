@@ -10,7 +10,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import srx.awesome.code.security.core.SecurityProperties;
+import srx.awesome.code.security.core.properties.SecurityProperties;
 
 @Configuration
 public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{//安全配置类
