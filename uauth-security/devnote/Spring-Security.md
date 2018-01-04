@@ -201,6 +201,200 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter {
 ```
 
 ### 个性化用户认证流程
+
+![Alt text](./1514377048979.png)
 1. 自定义登录界面
+ ![处理不同类型的请求](./1514377870857.png)
 2. 自定义登录成功处理
+AuthenticationSuccessHandle
+
+``` java
+/**
+ * Strategy used to handle a successful user authentication.
+ * <p>
+ * Implementations can do whatever they want but typical behaviour would be to control the
+ * navigation to the subsequent destination (using a redirect or a forward). For example,
+ * after a user has logged in by submitting a login form, the application needs to decide
+ * where they should be redirected to afterwards (see
+ * {@link AbstractAuthenticationProcessingFilter} and subclasses). Other logic may also be
+ * included if required.
+ *
+ * @author Luke Taylor
+ * @since 3.0
+ */
+public interface AuthenticationSuccessHandler {
+
+	/**
+	 * Called when a user has been successfully authenticated.
+	 *
+	 * @param request the request which caused the successful authentication
+	 * @param response the response
+	 * @param authentication the <tt>Authentication</tt> object which was created during
+	 * the authentication process.
+	 */
+	void onAuthenticationSuccess(HttpServletRequest request,
+			HttpServletResponse response, Authentication authentication)
+			throws IOException, ServletException;
+
+}
+```
+
+```java
+@Component("uauthSuccessHandler")
+public class UauthSuccessHandler implements AuthenticationSuccessHandler{
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Autowired//spring会有默认的Bean
+    private ObjectMapper objectMapper;
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        Authentication authentication) throws IOException, ServletException {
+
+        logger.info("Login Success");
+        //设置响应的内容格式
+        response.setContentType("application/json;charset=UTF-8");
+        //将authentication以Json字符串的格式返回
+        response.getWriter().write(objectMapper.writeValueAsString(authentication));
+    }
+}
+```
+
 3. 自定义登录失败处理
+
+```java
+@Component("uauthFailureHandler")
+public class UauthFailureHandler implements AuthenticationFailureHandler{
+
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
+    @Autowired//spring会有默认的注入
+    private ObjectMapper objectMapper;
+    @Override
+    public void onAuthenticationFailure(HttpServletRequest request,
+                                        HttpServletResponse response,
+                                        AuthenticationException exception) throws IOException, ServletException {
+        logger.info("Login Failure");
+        //设置响应的内容格式
+        response.setContentType("application/json;charset=UTF-8");
+        //将authentication以Json字符串的格式返回
+        response.getWriter().write(objectMapper.writeValueAsString(exception));
+    }
+}
+```
+
+Spring默认的成功和失败的处理器。
+SimpleUrlAuthenticationFailureHandler
+SavedRequestAwareAuthenticationSuccessHandler
+
+### 源码分析
+1. 认证流程说明；
+![Alt text](./1514892525283.png)
+![Alt text](./1514892706787.png)
+
+提交表单-》
+#### 1.UsernamePasswordAuthenticationFilter.class 
+![Alt text](./1514893133447.png)
+构建 UsernamePasswordAuthenticationToken 
+![Alt text](./1514893159884.png)
+其父类是Authentication接口的实现，其中有认证信息
+
+![构造器](./1514893199514.png)
+UsernamePasswordAuthenticationToken 的父类之中传入权限
+![Alt text](./1514893239121.png)
+
+UsernamePasswordAuthenticationToken 支持自定义属性
+![Alt text](./1514893421959.png)
+
+然后跳到AuthenticationManager。
+![Alt text](./1514893531085.png)
+传入的参数就是UsernamePasswordAuthenticationToken 
+
+#### 2. AuthenticationManager
+具体的实现为ProviderManager，其authenticate方法
+![Alt text](./1514893624674.png)
+
+在循环中，拿到所有AuthenticationProvider接口的实现，其中有真正认证的逻辑，以满足不同的认证流程。
+其中provider.supports就是返回是否支持当前的认证流程
+![Alt text](./1514893795068.png)
+
+如果支持则执行认证逻辑：
+
+```
+result = provider.authenticate(authentication);
+
+if (result != null) {
+	copyDetails(authentication, result);
+	break;
+}
+```
+
+比如用户名口令认证的provider是
+
+```
+public class DaoAuthenticationProvider extends AbstractUserDetailsAuthenticationProvider
+```
+
+主要的认证逻辑在抽象类中，
+其中authenticate方法里，首先获得用户信息UserDetails，然后再认证
+![Alt text](./1514894298444.png)
+
+DaoAuthenticationProvider类中实现了retrieveUser方法
+
+```
+	protected final UserDetails retrieveUser(String username,
+			UsernamePasswordAuthenticationToken authentication)
+			throws AuthenticationException {
+		UserDetails loadedUser;
+
+		try {
+			loadedUser = this.getUserDetailsService().loadUserByUsername(username);
+		}
+		catch (UsernameNotFoundException notFound) {
+			if (authentication.getCredentials() != null) {
+				String presentedPassword = authentication.getCredentials().toString();
+				passwordEncoder.isPasswordValid(userNotFoundEncodedPassword,
+						presentedPassword, null);
+			}
+			throw notFound;
+		}
+		catch (Exception repositoryProblem) {
+			throw new InternalAuthenticationServiceException(
+					repositoryProblem.getMessage(), repositoryProblem);
+		}
+
+		if (loadedUser == null) {
+			throw new InternalAuthenticationServiceException(
+					"UserDetailsService returned null, which is an interface contract violation");
+		}
+		return loadedUser;
+	}
+```
+![Alt text](./1514894413362.png)
+这里调用前文中定义的UserDetailsService来处用户认证信息，最终获得UserDetails。 
+
+AbstractUserDetailsAuthenticationProvider在获得UserDetails后，进行预处理
+```
+preAuthenticationChecks.check(user);
+additionalAuthenticationChecks(user,
+	(UsernamePasswordAuthenticationToken) authentication);
+```
+![Alt text](./1514894957057.png)
+
+预处理中
+
+2. 认证结果如何在多个请求间共享；
+3. 获取认证用户信息；
+
+
+图形验证码
+1. 生成图形验证码的接口
+根据随机数生成图片；
+将随机数保存在Session中；
+将生成的图片写到接口的响应中；
+2. 在认证流程中加入图形验证码
+3. 重构
+
+
