@@ -290,12 +290,66 @@ SimpleUrlAuthenticationFailureHandler
 SavedRequestAwareAuthenticationSuccessHandler
 
 ### 源码分析
-1. 认证流程说明；
+#### 1. 认证流程说明；
 ![Alt text](./1514892525283.png)
 ![Alt text](./1514892706787.png)
 
-提交表单-》
-#### 1.UsernamePasswordAuthenticationFilter.class 
+提交表单-》UsernamePasswordAuthenticationFilter拦截该请求
+
+```
+public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
+			throws IOException, ServletException {
+
+		HttpServletRequest request = (HttpServletRequest) req;
+		HttpServletResponse response = (HttpServletResponse) res;
+
+		if (!requiresAuthentication(request, response)) {
+			chain.doFilter(request, response);
+
+			return;
+		}
+
+		if (logger.isDebugEnabled()) {
+			logger.debug("Request is to process authentication");
+		}
+
+		Authentication authResult;
+
+		try {
+			authResult = attemptAuthentication(request, response);
+			if (authResult == null) {
+				// return immediately as subclass has indicated that it hasn't completed
+				// authentication
+				return;
+			}
+			sessionStrategy.onAuthentication(authResult, request, response);
+		}
+		catch (InternalAuthenticationServiceException failed) {
+			logger.error(
+					"An internal error occurred while trying to authenticate the user.",
+					failed);
+			unsuccessfulAuthentication(request, response, failed);
+
+			return;
+		}
+		catch (AuthenticationException failed) {
+			// Authentication failed
+			unsuccessfulAuthentication(request, response, failed);
+
+			return;
+		}
+
+		// Authentication success
+		if (continueChainBeforeSuccessfulAuthentication) {
+			chain.doFilter(request, response);
+		}
+
+		successfulAuthentication(request, response, chain, authResult);
+	}
+```
+
+
+##### 1.UsernamePasswordAuthenticationFilter.class 
 ![Alt text](./1514893133447.png)
 构建 UsernamePasswordAuthenticationToken 
 ![Alt text](./1514893159884.png)
@@ -312,7 +366,7 @@ UsernamePasswordAuthenticationToken 支持自定义属性
 ![Alt text](./1514893531085.png)
 传入的参数就是UsernamePasswordAuthenticationToken 
 
-#### 2. AuthenticationManager
+##### 2. AuthenticationManager
 具体的实现为ProviderManager，其authenticate方法
 ![Alt text](./1514893624674.png)
 
@@ -336,7 +390,7 @@ if (result != null) {
 ```
 public class DaoAuthenticationProvider extends AbstractUserDetailsAuthenticationProvider
 ```
-
+##### 3. AbstractUserDetailsAuthenticationProvider
 主要的认证逻辑在抽象类中，
 其中authenticate方法里，首先获得用户信息UserDetails，然后再认证
 ![Alt text](./1514894298444.png)
@@ -384,9 +438,215 @@ additionalAuthenticationChecks(user,
 ![Alt text](./1514894957057.png)
 
 预处理中
+```
+private class DefaultPreAuthenticationChecks implements UserDetailsChecker {
+		public void check(UserDetails user) {
+			if (!user.isAccountNonLocked()) {
+				logger.debug("User account is locked");
 
-2. 认证结果如何在多个请求间共享；
+				throw new LockedException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.locked",
+						"User account is locked"));
+			}
+
+			if (!user.isEnabled()) {
+				logger.debug("User account is disabled");
+
+				throw new DisabledException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.disabled",
+						"User is disabled"));
+			}
+
+			if (!user.isAccountNonExpired()) {
+				logger.debug("User account is expired");
+
+				throw new AccountExpiredException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.expired",
+						"User account has expired"));
+			}
+		}
+	}
+```
+检查用户是否被锁定；
+检查用户是否被删除；
+检查用户有效性是否过期；
+
+预先检查之后，再进行附加检查，
+`additionalAuthenticationChecks`
+主要的任务是使用passwordEncoder验证密码的信息摘要
+```
+protected void additionalAuthenticationChecks(UserDetails userDetails,
+			UsernamePasswordAuthenticationToken authentication)
+			throws AuthenticationException {
+		Object salt = null;
+
+		if (this.saltSource != null) {
+			salt = this.saltSource.getSalt(userDetails);
+		}
+
+		if (authentication.getCredentials() == null) {
+			logger.debug("Authentication failed: no credentials provided");
+
+			throw new BadCredentialsException(messages.getMessage(
+					"AbstractUserDetailsAuthenticationProvider.badCredentials",
+					"Bad credentials"));
+		}
+
+		String presentedPassword = authentication.getCredentials().toString();
+
+		if (!passwordEncoder.isPasswordValid(userDetails.getPassword(),
+				presentedPassword, salt)) {
+			logger.debug("Authentication failed: password does not match stored value");
+
+			throw new BadCredentialsException(messages.getMessage(
+					"AbstractUserDetailsAuthenticationProvider.badCredentials",
+					"Bad credentials"));
+		}
+	}
+```
+
+通过预先检查和附加检查之后，AbstractUserDetailsAuthenticationProvider的authenticate方法会继续执行后续检查`postAuthenticationChecks.check(user);`
+即校验最后一个bool，用户的身份凭据是否过期
+```
+	private class DefaultPostAuthenticationChecks implements UserDetailsChecker {
+		public void check(UserDetails user) {
+			if (!user.isCredentialsNonExpired()) {
+				logger.debug("User account credentials have expired");
+
+				throw new CredentialsExpiredException(messages.getMessage(
+						"AbstractUserDetailsAuthenticationProvider.credentialsExpired",
+						"User credentials have expired"));
+			}
+		}
+	}
+```
+都通过之后，生成用户认证成功信息。
+
+```
+return createSuccessAuthentication(principalToReturn, authentication, user);
+```
+
+##### 4. UsernamePasswordAuthenticationToken 
+再次生成UsernamePasswordAuthenticationToken ，不过这次是有授权信息的
+```
+	protected Authentication createSuccessAuthentication(Object principal,
+			Authentication authentication, UserDetails user) {
+		// Ensure we return the original credentials the user supplied,
+		// so subsequent attempts are successful even with encoded passwords.
+		// Also ensure we return the original getDetails(), so that future
+		// authentication events after cache expiry contain the details
+		UsernamePasswordAuthenticationToken result = new UsernamePasswordAuthenticationToken(
+				principal, authentication.getCredentials(),
+				authoritiesMapper.mapAuthorities(user.getAuthorities()));
+		result.setDetails(authentication.getDetails());
+
+		return result;
+	}
+```
+
+调用四个参数的构造器，将认证信息设为true。
+```
+	public UsernamePasswordAuthenticationToken(Object principal, Object credentials,
+			Collection<? extends GrantedAuthority> authorities) {
+		super(authorities);
+		this.principal = principal; //用户
+		this.credentials = credentials; //凭证(密码)
+		super.setAuthenticated(true); // must use super, as we override
+	}
+```
+这时候UserDetail中已经有了用户的授权信息。
+
+##### 5. Authentication 
+生成Authentication 之后，认证信息将返回给`UsernamePasswordAuthenticationFilter`，其父类`AbstractAuthenticationProcessingFilter`中`successfulAuthentication(request, response, chain, authResult);`方法中调用`successHandler.onAuthenticationSuccess(request, response, authResult);`使用定义的认证成功处理器来处理该事件，同理，如果认证失败调用`unsuccessfulAuthentication(request, response, failed);`
+
+
+#### 2. 认证结果如何在多个请求间共享
+Session. 何时将什么对象放入Session
+![Alt text](./1514983385576.png)
+![Alt text](./1514983471985.png)
+
+`AbstractAuthenticationProcessingFilter`中`successfulAuthentication`方法中调用`successHandler.onAuthenticationSuccess`之前
+将认证结果放入**SecurityContext**，在交给**SecurityContextHolder**
+
+```
+SecurityContextHolder.getContext().setAuthentication(authResult);
+```
+SecurityContextImpl是SecurityContext的实现，其中封装了Authentication对象，并重写了其Equals和HashCode方法
+![Alt text](./1514983685712.png)
+
+而SecurityContextHolder是一种ThreadLocal，用于在线程内部隔离变量，SecurityContext就放在其中。
+
+因为处理请求和返回响应都在同一个线程中完成的，所以请求时放入认证结果，在同一线程的后续其他程序中，也能被读出，包括响应过程。
+![Alt text](./1514984078763.png)
+
+`SecurityContextPersistenceFilter`在过滤器的最前端，请求到来时，其在会尝试在Session中尝试SecurityContext，如果不能找到SecurityContext，则说明没有认证，交个后面的过滤器来处理；当返回响应时，如果SecurityContextHolder中包含SecurityContext，其会SecurityContext放入Session中。
+
+
+```
+public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
+			throws IOException, ServletException {
+		HttpServletRequest request = (HttpServletRequest) req;
+		HttpServletResponse response = (HttpServletResponse) res;
+
+		if (request.getAttribute(FILTER_APPLIED) != null) {
+			// ensure that filter is only applied once per request
+			chain.doFilter(request, response);
+			return;
+		}
+
+		final boolean debug = logger.isDebugEnabled();
+
+		request.setAttribute(FILTER_APPLIED, Boolean.TRUE);
+
+		if (forceEagerSessionCreation) {
+			HttpSession session = request.getSession();
+
+			if (debug && session.isNew()) {
+				logger.debug("Eagerly created session: " + session.getId());
+			}
+		}
+
+		HttpRequestResponseHolder holder = new HttpRequestResponseHolder(request,
+				response);
+		SecurityContext contextBeforeChainExecution = repo.loadContext(holder);
+
+		try {
+			SecurityContextHolder.setContext(contextBeforeChainExecution);//session中取出SecurityContext，可能null
+
+			chain.doFilter(holder.getRequest(), holder.getResponse());//进行后续过滤器的处理
+
+		}
+		finally { //执行后，SecurityContextHolder取出SecurityContext,放入Session 
+			SecurityContext contextAfterChainExecution = SecurityContextHolder
+					.getContext();
+			// Crucial removal of SecurityContextHolder contents - do this before anything
+			// else.
+			SecurityContextHolder.clearContext();
+			repo.saveContext(contextAfterChainExecution, holder.getRequest(),
+					holder.getResponse());
+			request.removeAttribute(FILTER_APPLIED);
+
+			if (debug) {
+				logger.debug("SecurityContextHolder now cleared, as request processing completed");
+			}
+		}
+	}
+```
+
 3. 获取认证用户信息；
+
+```
+    @GetMapping("/me")
+    public Object getCurrentUser(){
+        return SecurityContextHolder.getContext().getAuthentication();
+    }
+```
+
+![Alt text](./1514985497159.png)
+![Alt text](./1514986340828.png)
+
+
+
 
 
 图形验证码
