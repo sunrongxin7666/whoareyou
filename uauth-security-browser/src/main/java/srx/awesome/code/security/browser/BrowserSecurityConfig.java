@@ -10,7 +10,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import srx.awesome.code.security.core.properties.SecurityProperties;
+import srx.awesome.code.security.core.validate.code.ValidateCodeFilter;
 
 @Configuration
 public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{//安全配置类
@@ -31,7 +33,11 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{//安全
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http.formLogin()//表单认证
+        ValidateCodeFilter validateCodeFilter = new ValidateCodeFilter();
+        validateCodeFilter.setFailureHandler(uauthFailureHandler);
+
+        http.addFilterBefore(validateCodeFilter, UsernamePasswordAuthenticationFilter.class)
+                .formLogin()//表单认证
                 .loginPage("/authentication/require") //登录页面
                 .loginProcessingUrl("/authentication/form")//处理登录请求的url
                 .successHandler(uauthSuccessHandler)
@@ -39,7 +45,8 @@ public class BrowserSecurityConfig extends WebSecurityConfigurerAdapter{//安全
                 .and()
                 .authorizeRequests()//授权设置
                 .antMatchers("/authentication/require",
-                        securityProperties.getBrowser().getLoginPage()).permitAll()
+                        securityProperties.getBrowser().getLoginPage(),
+                        "/code/image").permitAll()
                 .anyRequest()//任何请求
                 .authenticated()//都需要认证后授权
                 .and()

@@ -10,6 +10,7 @@ import org.springframework.security.web.authentication.AuthenticationFailureHand
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import srx.awesome.code.security.browser.support.SimpleResponse;
 import srx.awesome.code.security.core.properties.LoginType;
 import srx.awesome.code.security.core.properties.SecurityProperties;
 
@@ -41,7 +42,9 @@ public class UauthFailureHandler extends SimpleUrlAuthenticationFailureHandler{
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(INTERNAL_SERVER_ERROR.value());
             //将authentication以Json字符串的格式返回
-            response.getWriter().write(objectMapper.writeValueAsString(exception));
+            response.getWriter().write(
+                    objectMapper.writeValueAsString(
+                            new SimpleResponse(exception.getMessage())));
         }else {
             super.onAuthenticationFailure(request,response, exception);
         }
